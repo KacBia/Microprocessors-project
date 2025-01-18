@@ -1,0 +1,4 @@
+../Core/Src/btn.c:37:23:BTN_DIO_Read	2
+../Core/Src/btn.c:48:7:BTN_DIO_IsPressed	1
+../Core/Src/btn.c:58:7:BTN_DIO_IsReleased	1
+../Core/Src/btn.c:68:22:BTN_DIO_EdgeDetected	5
