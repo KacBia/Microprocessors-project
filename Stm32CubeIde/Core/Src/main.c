@@ -201,6 +201,8 @@ int main(void)
 //< Declare key array with space for 2 characters + null terminator
   char key[3] = {'\0', '\0', '\0'};  //<Initialize with null characters
   static uint8_t input_index = 0;
+  uint8_t isValid = 0; // Flag for valid input
+
   /* USER CODE END 2 */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -227,98 +229,119 @@ int main(void)
     * within nested infinite loops for continuous operation.
     * @retval: None
     */
-while (1) {
-     lcd_init();
-     lcd_send_cmd(0x80); //< 0x80 is to display on first line
-     lcd_send_string("Scan Chip!");
-     HAL_GPIO_WritePin(RED_LED_GPIO_Port,RED_LED_Pin,SET);
-     HAL_GPIO_WritePin(GREEN_LED_GPIO_Port,GREEN_LED_Pin,RESET);
-     HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin,RESET);
-     //< Request and anti-collision for RFID chip detection
-     status = MFRC522_Request(PICC_REQIDL, str); //< Request RFID
-     status = MFRC522_Anticoll(str); //< Anti-collision
-     memcpy(sNum, str, 5); //< Copy chip data
-     sprintf(uart_buffer, "Chip Number: %02X %02X %02X %02X %02X\r\n", str[0], str[1], str[2], str[3], str[4]);
-     HAL_UART_Transmit(&huart3, (uint8_t *)uart_buffer, strlen(uart_buffer), HAL_MAX_DELAY);
-     //< Check for correct chip (replace with correct chip ID)
-     if ((str[0] == 240) && (str[1] == 12) && (str[2] == 77) && (str[3] == 116) && (str[4] == 197)) {
-         lcd_init(); //< Display prompt to enter position and clear the one before
-         lcd_send_cmd(0x80);
-         lcd_send_string("Enter Pos:");
-        //< Wait for user input (2 digits)
-         input_index = 0;  //< Reset input index
-     while (input_index < 2) {
-         pressed = KEYPAD_GetKey(&hkeypad, 0);//< Get user input
-       if (pressed != '\0') {
-         key[input_index] = pressed;  //< Store the pressed key
-         input_index++;  //< Move to the next index for the second number
-         }
-         }
-         key[input_index] = '\0';  // Null-terminate the string
-         targetDistance = atoi(key);  // Convert input string to an integer for the distance
-         //< Display target distance on the LCD
-       lcd_init();
-       lcd_send_cmd(0x80);
-       lcd_send_string("Target Distance: ");
-       lcd_send_cmd(0xc0);
-       lcd_send_string(key);  //< Display the target distance
-       sprintf(uart_buffer, "Target Distance Set: %d cm\r\n", targetDistance);
-       HAL_UART_Transmit(&huart3, (uint8_t *)uart_buffer, strlen(uart_buffer), HAL_MAX_DELAY);
-       HAL_Delay(1000);  //< Delay to show target distance
-             // Begin moving the servo and checking distance
-     while (1) {  //< Infinite loop for continuous rotation
-       if (direction) {
-          servo_position += 5.0f;
-        if (servo_position >= 180.0f) {
-          servo_position = 180.0f;
-           direction = 0;
-        }
-         } else {
-              servo_position -= 5.0f;
-            if (servo_position <= 0.0f) {
-             servo_position = 0.0f;
-               direction = 1;
-            }
-              }
-      //< Move the servo to the current position
-         SERVO_WritePosition(&hservo1, servo_position);
-         HAL_Delay(100);  // Adjust delay for smoother movement
-      //< Measure distance using the ultrasonic sensor
-         HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, SET);
-          __HAL_TIM_SET_COUNTER(&htim1, 0);
-          while (__HAL_TIM_GET_COUNTER (&htim1) < 10);
-          HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, RESET);
-          pMillis = HAL_GetTick();
-          while (!(HAL_GPIO_ReadPin (ECHO_GPIO_Port, ECHO_Pin)) && pMillis + 10 >  HAL_GetTick());
-          Value1 = __HAL_TIM_GET_COUNTER (&htim1);
-          pMillis = HAL_GetTick();
-          while ((HAL_GPIO_ReadPin (ECHO_GPIO_Port, ECHO_Pin)) && pMillis + 50 > HAL_GetTick());
-          Value2 = __HAL_TIM_GET_COUNTER (&htim1);
-          Distance = (Value2-Value1)* 0.034/2;
-          HAL_Delay(50); //< input capture that will use
-          sprintf(uart_buffer, "Current Distance: %d cm\r\n", Distance);
-          HAL_UART_Transmit(&huart3, (uint8_t *)uart_buffer, strlen(uart_buffer), HAL_MAX_DELAY);
-         //< Check if distance matches target
-         if (Distance == targetDistance) {
-         SERVO_WritePosition(&hservo1, servo_position);  //< Stop the servo when target distance is detected
-         lcd_init();
-         lcd_send_cmd(0x80);
-         lcd_send_string("Detected");  //< Display "Detected" on LCD to alert
-         HAL_GPIO_WritePin(GREEN_LED_GPIO_Port,GREEN_LED_Pin,SET);
-         HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin,SET);
-         HAL_GPIO_WritePin(RED_LED_GPIO_Port,RED_LED_Pin,RESET);
-         sprintf(uart_buffer, "Detection Successful: %d cm matched\r\n", Distance);
-         HAL_UART_Transmit(&huart3, (uint8_t *)uart_buffer, strlen(uart_buffer), HAL_MAX_DELAY);
-         HAL_Delay(3000);
-        break;  //< Exit the loop once the target distance is detected
-      }
-        }
-         }
-        HAL_UART_Transmit(&huart3, (uint8_t*)&Distance, 1, 10);
+  while (1) {
+      lcd_init();
+      lcd_send_cmd(0x80);  //< 0x80 is to display on first line
+      lcd_send_string("Scan Chip!");
+      HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, SET);
+      HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, RESET);
+      HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, RESET);
 
-         HAL_Delay(100);  //< Adjust delay for smoother operation
-   }
+      //< Request and anti-collision for RFID chip detection
+      status = MFRC522_Request(PICC_REQIDL, str);  //< Request RFID
+      status = MFRC522_Anticoll(str);  //< Anti-collision
+      memcpy(sNum, str, 5);  //< Copy chip data
+      sprintf(uart_buffer, "Chip Number: %02X %02X %02X %02X %02X\r\n", str[0], str[1], str[2], str[3], str[4]);
+      HAL_UART_Transmit(&huart3, (uint8_t *)uart_buffer, strlen(uart_buffer), HAL_MAX_DELAY);
+
+      //< Check for correct chip (replace with correct chip ID)
+      if ((str[0] == 240) && (str[1] == 12) && (str[2] == 77) && (str[3] == 116) && (str[4] == 197)) {
+    	  lcd_init();  //< Display prompt to enter position and clear the one before
+    	  lcd_send_cmd(0x80);
+    	  lcd_send_string("Enter Pos 03-17:");
+
+    	  // Input validation loop for range 03-17
+
+    	  while (!isValid) { // Loop until valid input is received
+    	      input_index = 0;  //< Reset input index
+    	      while (input_index < 2) {
+    	          pressed = KEYPAD_GetKey(&hkeypad, 0);  //< Get user input
+    	          if (pressed != '\0') {
+    	              key[input_index] = pressed;  //< Store the pressed key
+    	              input_index++;  //< Move to the next index for the second number
+    	          }
+    	      }
+    	      key[input_index] = '\0';  // Null-terminate the string
+    	      targetDistance = atoi(key);  // Convert input string to an integer for the distance
+
+    	      if (targetDistance >= 3 && targetDistance <= 17) { // Check if input is valid
+    	          isValid = 1; // Mark input as valid
+    	      } else {
+    	          lcd_init();
+    	          lcd_send_cmd(0x80);
+    	          lcd_send_string("Invalid! Retry:");  // Prompt for valid input
+    	          HAL_Delay(1000);  // Allow time for user to see the message
+    	      }
+    	  }
+
+    	  //< Display target distance on the LCD
+    	  lcd_init();
+    	  lcd_send_cmd(0x80);
+    	  lcd_send_string("Target Distance: ");
+    	  lcd_send_cmd(0xc0);
+    	  lcd_send_string(key);  //< Display the target distance
+    	  sprintf(uart_buffer, "Target Distance Set: %d cm\r\n", targetDistance);
+    	  HAL_UART_Transmit(&huart3, (uint8_t *)uart_buffer, strlen(uart_buffer), HAL_MAX_DELAY);
+    	  HAL_Delay(1000);  //< Delay to show target distance
+
+    	  // Begin moving the servo and checking distance
+    	  while (1) {  //< Infinite loop for continuous rotation
+    	      if (direction) {
+    	          servo_position += 5.0f;
+    	          if (servo_position >= 135.0f) {
+    	              servo_position = 135.0f;
+    	              direction = 0;
+    	          }
+    	      } else {
+    	          servo_position -= 5.0f;
+    	          if (servo_position <= 45.0f) {
+    	              servo_position = 45.0f;
+    	              direction = 1;
+    	          }
+    	      }
+
+    	      //< Move the servo to the current position
+    	      SERVO_WritePosition(&hservo1, servo_position);
+    	      HAL_Delay(100);  // Adjust delay for smoother movement
+
+    	      //< Only read the distance when the servo has completed its rotation and stopped
+    	      if (servo_position == 0.0f || servo_position == 180.0f || fabs(servo_position - roundf(servo_position / 5) * 5) < 0.01) {
+    	          HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, SET);
+    	          __HAL_TIM_SET_COUNTER(&htim1, 0);
+    	          while (__HAL_TIM_GET_COUNTER(&htim1) < 10);
+    	          HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, RESET);
+    	          pMillis = HAL_GetTick();
+    	          while (!(HAL_GPIO_ReadPin(ECHO_GPIO_Port, ECHO_Pin)) && pMillis + 10 > HAL_GetTick());
+    	          Value1 = __HAL_TIM_GET_COUNTER(&htim1);
+    	          pMillis = HAL_GetTick();
+    	          while ((HAL_GPIO_ReadPin(ECHO_GPIO_Port, ECHO_Pin)) && pMillis + 50 > HAL_GetTick());
+    	          Value2 = __HAL_TIM_GET_COUNTER(&htim1);
+    	          Distance = (Value2 - Value1) * 0.034 / 2;
+    	          HAL_Delay(50);  //< Input capture that will use
+    	          sprintf(uart_buffer, "Current Distance: %d cm\r\n", Distance);
+    	          HAL_UART_Transmit(&huart3, (uint8_t *)uart_buffer, strlen(uart_buffer), HAL_MAX_DELAY);
+
+    	          //< Check if distance matches target
+    	          if (Distance == targetDistance) {
+    	              SERVO_WritePosition(&hservo1, servo_position);  //< Stop the servo when target distance is detected
+    	              lcd_init();
+    	              lcd_send_cmd(0x80);
+    	              lcd_send_string("Detected");  //< Display "Detected" on LCD to alert
+    	              HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, SET);
+    	              HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, SET);
+    	              HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, RESET);
+    	              sprintf(uart_buffer, "Detection Successful: %d cm matched\r\n", Distance);
+    	              HAL_UART_Transmit(&huart3, (uint8_t *)uart_buffer, strlen(uart_buffer), HAL_MAX_DELAY);
+    	              HAL_Delay(3000);
+    	              break;  //< Exit the loop once the target distance is detected
+    	          }
+    	      }
+    	  }     }
+      HAL_UART_Transmit(&huart3, (uint8_t*)&Distance, 1, 10);
+      HAL_Delay(100);  //< Adjust delay for smoother operation
+  }
 }
+
   /* USER CODE END 3 */
 void SystemClock_Config(void)
 {
