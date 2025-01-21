@@ -4030,7 +4030,7 @@ void MX_TIM9_Init(void)
  8001c26:	4b23      	ldr	r3, [pc, #140]	@ (8001cb4 <MX_TIM9_Init+0xc0>)
  8001c28:	2200      	movs	r2, #0
  8001c2a:	609a      	str	r2, [r3, #8]
-  htim9.Init.Period = 19999;
+  htim9.Init.Period = 20000-1;
  8001c2c:	4b21      	ldr	r3, [pc, #132]	@ (8001cb4 <MX_TIM9_Init+0xc0>)
  8001c2e:	f644 621f 	movw	r2, #19999	@ 0x4e1f
  8001c32:	60da      	str	r2, [r3, #12]
